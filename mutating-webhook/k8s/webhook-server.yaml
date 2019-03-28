@@ -3,20 +3,21 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   labels:
-    app: conduit-inject
-  name: conduit-inject
+    app: analytics-spark-injector
+  name: analytics-spark-injector
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: conduit-inject
-      name: conduit-inject
+        app: analytics-spark-injector
+      name: analytics-spark-injector
     spec:
+      serviceAccountName: analytics-injector
       containers:
         - name: webhook
-          image: gcr.io/rmars/mutating-webhook:0.0.1
-          imagePullPolicy: Never
+          image: 217386048230.dkr.ecr.us-east-1.amazonaws.com/analytics-spark-injector:0.0.1
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
 ---
@@ -31,4 +32,22 @@ spec:
     - port: 443
       targetPort: 8080
   selector:
-    app: conduit-inject
+    app: analytics-spark-injector
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: analytics-injector
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: analytics-spark-injector-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: analytics-injector
+    namespace: default

@@ -129,8 +129,39 @@ func getAdmissionDecision(admReq *v1beta1.AdmissionReview) *v1beta1.AdmissionRes
 func patchConfig(pod *corev1.Pod, annotations map[string]string) ([]byte, error) {
 	var patch []jsonpatch.JsonPatchOperation
 
+	patch = append(patch, addTolerations(pod.Spec.Tolerations)...)
 	patch = append(patch, addAnnotations(pod.Annotations, annotations)...)
-	return json.Marshal(patch)
+
+	patchBytes, err := json.Marshal(patch)
+	if err == nil {
+		log.Printf(string(patchBytes))
+	}
+	return patchBytes, err
+}
+
+func addTolerations(current []corev1.Toleration) []jsonpatch.JsonPatchOperation {
+	log.Printf("Tolerations: addTolerations")
+	for _, toleration := range current {
+		log.Printf("Toleration Key: %s, Effect: %s, Operator: %s", toleration.Key, toleration.Effect, toleration.Operator)
+	}
+
+	log.Printf("Adding Toleration For MyKey to Definition")
+
+	var patch []jsonpatch.JsonPatchOperation
+	op := "add"
+
+	toleration := map[string]string{
+		"key":      "analytics-node",
+		"operator": "Exists",
+	}
+
+	patch = append(patch, jsonpatch.JsonPatchOperation{
+		Operation: op,
+		Path:      "/spec/tolerations/-",
+		Value:     toleration,
+	})
+
+	return patch
 }
 
 func addAnnotations(current map[string]string, toAdd map[string]string) []jsonpatch.JsonPatchOperation {
@@ -163,16 +194,19 @@ func addAnnotations(current map[string]string, toAdd map[string]string) []jsonpa
 }
 
 func shouldInject(metadata *metav1.ObjectMeta) bool {
-	shouldInject := true
+
+	log.Printf("Labels: ", metadata.Labels)
+
+	return metadata.Labels["spark-role"] == "executor"
 
 	// don't attempt to inject pods in the Kubernetes system namespaces
-	for _, ns := range kubeSystemNamespaces {
+	/* for _, ns := range kubeSystemNamespaces {
 		if metadata.Namespace == ns {
 			shouldInject = false
 		}
 	}
 
-	return shouldInject
+	return shouldInject */
 }
 
 func main() {
